@@ -4,7 +4,7 @@ A Poa is a small personal site made of Markdown files. Every Poa lists the other
 
 ## Make your own Poa
 
-1. Go to [github.com/manujarvinen/poa-template](https://github.com/manujarvinen/poa-template) and press the green **Use this template** button, then **Create a new repository**. Name it `poa` and make it **Public**.
+1. Go to [github.com/gearnoodle/poa-template](https://github.com/gearnoodle/poa-template) and press the green **Use this template** button, then **Create a new repository**. Name it `poa` and make it **Public**.
 2. In the repository, go to **Settings → Pages**, choose **Deploy from a branch**, pick `main` and `/ (root)`, and save.
 3. Edit `poa.md`: put your name in it.
 4. After a minute your Poa is live at `https://<your-username>.github.io/poa/`.
