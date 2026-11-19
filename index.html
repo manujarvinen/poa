@@ -65,7 +65,30 @@
   .empty { color: var(--muted); font-size: 14px; margin: 0 12px 40px; }
   .foot { margin-top: auto; padding: 24px 12px 0; display: flex; align-items: baseline; gap: 14px; }
   .foot strong { font-size: 18px; }
-  .foot a { color: var(--muted); font-size: 13px; }
+  .foot { position: relative; }
+  .foot button.what {
+    background: none; border: 0; padding: 0; cursor: pointer;
+    font: inherit; font-size: 13px; color: var(--muted); text-decoration: underline;
+  }
+  .foot button.what:hover { color: var(--text); }
+  .tip {
+    position: absolute;
+    left: 0;
+    bottom: calc(100% + 10px);
+    width: 240px;
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.10);
+    padding: 14px 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    z-index: 10;
+  }
+  .tip[hidden] { display: none; }
+  .tip p { margin: 0 0 8px; }
+  .tip a { font-weight: 600; text-decoration: none; }
+  .tip a:hover { text-decoration: underline; }
 
   /* Post */
   main { flex: 1; padding: 64px 48px 96px; min-width: 0; }
@@ -127,8 +150,20 @@
 <script>
 "use strict";
 
-// Where the "what is poa?" link points.
-const WHAT_IS_POA = "https://github.com/topics/poa";
+// "Read more" under "what is poa?" points to this Poa's own GitHub repo when the
+// site runs on GitHub Pages (username.github.io/repo). Elsewhere it uses this:
+const WHAT_IS_POA_FALLBACK = "https://github.com/topics/poa";
+
+function readMoreUrl() {
+  const host = location.hostname.toLowerCase();
+  const m = host.match(/^([a-z0-9-]+)\.github\.io$/);
+  if (!m) return WHAT_IS_POA_FALLBACK;
+  const first = location.pathname.split("/")[1] || "";
+  // username.github.io/poa/ lives in repo "poa"; username.github.io/ lives in repo "username.github.io".
+  const repo = first && !first.includes(".") ? first : host;
+  return "https://github.com/" + m[1] + "/" + repo + "#readme";
+}
+const WHAT_IS_POA = readMoreUrl();
 
 // Search walks the "Poas I read" lists outward from your own Poa.
 const SEARCH_STEPS = 3;        // how many steps away from you
@@ -251,6 +286,25 @@ function el(tag, attrs = {}, ...kids) {
   return e;
 }
 
+function footer() {
+  const tip = el("div", { class: "tip", id: "what-tip", role: "dialog", hidden: "" },
+    el("p", {}, "Poa is a small personal site made of Markdown files. Every Poa lists the Poas its owner reads, and you find your way around by hopping from list to list."),
+    el("p", {}, "No central server, no signup, no algorithm."),
+    el("a", { href: WHAT_IS_POA }, "Read more →"));
+  const btn = el("button", { type: "button", class: "what", "aria-expanded": "false", "aria-controls": "what-tip" }, "what is poa?");
+  const toggle = open => {
+    tip.hidden = !open;
+    btn.setAttribute("aria-expanded", String(open));
+  };
+  btn.addEventListener("click", e => { e.stopPropagation(); toggle(tip.hidden); });
+  tip.addEventListener("click", e => e.stopPropagation());
+  closeTip = () => toggle(false);
+  return el("div", { class: "foot" }, el("strong", {}, "poa"), btn, tip);
+}
+let closeTip = () => {};
+document.addEventListener("click", () => closeTip());
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeTip(); });
+
 function searchBox(q) {
   const input = el("input", { type: "search", name: "q", placeholder: "Search Poas", "aria-label": "Search Poas" });
   input.value = q || "";
@@ -296,9 +350,7 @@ async function renderSide(poa, current, q) {
     return { url, a, li, date: "" };
   });
 
-  side.append(el("div", { class: "foot" },
-    el("strong", {}, "poa"),
-    el("a", { href: WHAT_IS_POA }, "what is poa?")));
+  side.append(footer());
 
   // Fill in others as they arrive, then sort newest first.
   await Promise.all(items.map(async it => {
