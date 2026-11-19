@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>poa</title>
+<style>
+  :root {
+    --side-bg: #f3f4f6;
+    --text: #1f2328;
+    --muted: #59636e;
+    --accent: #1f5f8b;
+    --active-bg: #e3e8ed;
+    --line: #e5e7eb;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: var(--text);
+    display: flex;
+    min-height: 100vh;
+  }
+  a { color: var(--accent); }
+
+  /* Sidebar */
+  aside {
+    width: 300px;
+    flex-shrink: 0;
+    background: var(--side-bg);
+    padding: 36px 24px 28px;
+    display: flex;
+    flex-direction: column;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+  .back { font-size: 14px; text-decoration: none; margin: 0 12px 20px; display: inline-block; }
+  .back:hover { text-decoration: underline; }
+  h2.label {
+    font-size: 13px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted);
+    font-weight: 600;
+    margin: 0 12px 14px;
+  }
+  h2.label + ul { margin-bottom: 40px; }
+  ul.list { list-style: none; margin: 0; padding: 0; }
+  ul.list li a {
+    display: block;
+    padding: 8px 12px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: var(--text);
+    line-height: 1.3;
+    margin-bottom: 6px;
+  }
+  ul.list li a:hover { background: var(--active-bg); }
+  ul.list li a.active { background: var(--active-bg); color: var(--accent); font-weight: 600; }
+  .other-name { font-weight: 600; display: block; }
+  .other-post { color: var(--muted); display: block; margin-top: 2px; }
+  .other.offline { opacity: 0.45; }
+  .empty { color: var(--muted); font-size: 14px; margin: 0 12px 40px; }
+  .foot { margin-top: auto; padding: 24px 12px 0; display: flex; align-items: baseline; gap: 14px; }
+  .foot strong { font-size: 18px; }
+  .foot a { color: var(--muted); font-size: 13px; }
+
+  /* Post */
+  main { flex: 1; padding: 64px 48px 96px; min-width: 0; }
+  article { max-width: 680px; margin: 0 auto; }
+  .meta { font-size: 16px; color: var(--muted); margin-bottom: 8px; }
+  .meta a { color: var(--text); font-weight: 600; text-decoration: none; }
+  .meta a:hover { text-decoration: underline; }
+  article h1.title { font-size: 40px; line-height: 1.15; letter-spacing: -0.02em; margin: 0 0 36px; }
+  .body { font-size: 18px; line-height: 1.75; }
+  .body h1, .body h2, .body h3 { line-height: 1.25; margin: 1.6em 0 0.6em; }
+  .body h2 { font-size: 26px; }
+  .body img { max-width: 100%; }
+  .body pre { background: var(--side-bg); padding: 14px 16px; border-radius: 8px; overflow-x: auto; font-size: 15px; }
+  .body code { font-size: 0.9em; }
+  .body blockquote { margin: 0; padding-left: 18px; border-left: 3px solid var(--line); color: var(--muted); }
+  .notice { color: var(--muted); font-size: 18px; }
+
+  /* Search */
+  form.search { margin: 0 12px 32px; }
+  form.search input {
+    width: 100%;
+    font: inherit;
+    font-size: 15px;
+    padding: 8px 12px;
+    border: 1px solid #d0d7de;
+    border-radius: 8px;
+    background: #fff;
+    color: var(--text);
+  }
+  form.search input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+  .status { color: var(--muted); font-size: 15px; margin: -20px 0 24px; }
+  ul.results { list-style: none; margin: 0; padding: 0; }
+  ul.results li a {
+    display: block;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+    text-decoration: none;
+    color: var(--text);
+  }
+  ul.results li a:hover .r-title { color: var(--accent); }
+  .r-meta { color: var(--muted); font-size: 14px; }
+  .r-title { font-size: 20px; font-weight: 600; margin: 2px 0; display: block; }
+  .r-snip { color: var(--muted); font-size: 16px; line-height: 1.5; }
+  .r-snip mark { background: #fff1b8; color: var(--text); }
+
+  @media (max-width: 760px) {
+    body { flex-direction: column; }
+    aside { width: auto; height: auto; position: static; padding: 24px 16px; order: 2; }
+    main { padding: 32px 20px 64px; }
+    article h1.title { font-size: 30px; }
+  }
+</style>
+</head>
+<body>
+<aside id="side"></aside>
+<main><article id="post"></article></main>
+
+<script src="markdown-it.min.js"></script>
+<script>
+"use strict";
+
+// Where the "what is poa?" link points.
+const WHAT_IS_POA = "https://github.com/topics/poa";
+
+// Search walks the "Poas I read" lists outward from your own Poa.
+const SEARCH_STEPS = 3;        // how many steps away from you
+const SEARCH_MAX_POAS = 150;   // stop after this many Poas
+const SEARCH_POSTS_EACH = 10;  // full text of each Poa's newest posts
+
+const md = window.markdownit({ html: false, linkify: true });
+const HOME = new URL("poa.md", location.href).href;
+const cache = new Map();
+
+// ---------- Parsing ----------
+
+function splitHeader(text) {
+  text = text.replace(/^﻿/, "").replace(/\r\n?/g, "\n");
+  const header = {};
+  if (text.startsWith("---\n")) {
+    const end = text.indexOf("\n---", 4);
+    if (end !== -1) {
+      for (const line of text.slice(4, end).split("\n")) {
+        const i = line.indexOf(":");
+        if (i > 0) header[line.slice(0, i).trim().toLowerCase()] = line.slice(i + 1).trim();
+      }
+      text = text.slice(end + 4).replace(/^[^\n]*\n/, "");
+    }
+  }
+  return { header, body: text };
+}
+
+function parsePoa(text, url) {
+  const { header, body } = splitHeader(text);
+  const posts = [], reads = [];
+  let section = null;
+  for (const raw of body.split("\n")) {
+    const line = raw.trim();
+    const h = line.match(/^#{1,6}\s+(.*)$/);
+    if (h) {
+      const name = h[1].toLowerCase();
+      section = name.startsWith("post") ? "posts" : name.includes("read") ? "reads" : null;
+      continue;
+    }
+    const item = line.match(/^[-*+]\s+(.*)$/);
+    if (!item || !section) continue;
+    const link = item[1].match(/^\[([^\]]*)\]\(([^)\s]+)\)/);
+    if (section === "posts" && link) {
+      posts.push({ title: link[1], href: link[2] });
+    } else if (section === "reads") {
+      reads.push(link ? link[2] : item[1].split(/\s/)[0]);
+    }
+  }
+  return {
+    url,
+    version: header.version,
+    name: header.name || new URL(url).host,
+    posts,
+    reads,
+  };
+}
+
+// An address may be "name.github.io/poa", a full https URL, or a direct link to a .md file.
+function poaUrl(address) {
+  let a = address.trim();
+  if (!/^https?:\/\//i.test(a)) a = "https://" + a;
+  if (/\.md$/i.test(a)) return new URL(a).href;
+  if (!a.endsWith("/")) a += "/";
+  return new URL("poa.md", a).href;
+}
+
+function dateFrom(href) {
+  const m = href.match(/(\d{4}-\d{2}-\d{2})/);
+  return m ? m[1] : "";
+}
+
+function formatDate(s) {
+  const d = new Date(s + "T12:00:00");
+  if (isNaN(d)) return s;
+  return d.toLocaleDateString("en", { month: "short", day: "numeric", year: "numeric" });
+}
+
+// ---------- Fetching ----------
+
+async function fetchText(url) {
+  const res = await fetch(url, { cache: "no-cache" });
+  if (!res.ok) throw new Error(res.status);
+  return res.text();
+}
+
+function loadPoa(url) {
+  if (!cache.has(url)) {
+    cache.set(url, fetchText(url).then(t => parsePoa(t, url)).catch(() => null));
+  }
+  return cache.get(url);
+}
+
+// ---------- Routing ----------
+// #post=FILE                  a post on my own Poa
+// #poa=URL                    visiting someone's Poa (their newest post)
+// #poa=URL&post=FILE          a post on someone's Poa
+
+function route() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  return { poa: p.get("poa") || HOME, post: p.get("post") };
+}
+
+function link(poa, post) {
+  const p = new URLSearchParams();
+  if (poa !== HOME) p.set("poa", poa);
+  if (post) p.set("post", post);
+  const s = p.toString();
+  return s ? "#" + s : "#";
+}
+
+// ---------- Rendering ----------
+
+function el(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v; else e.setAttribute(k, v);
+  }
+  for (const k of kids) if (k != null) e.append(k);
+  return e;
+}
+
+function searchBox(q) {
+  const input = el("input", { type: "search", name: "q", placeholder: "Search Poas", "aria-label": "Search Poas" });
+  input.value = q || "";
+  const form = el("form", { class: "search", role: "search" }, input);
+  form.addEventListener("submit", e => {
+    e.preventDefault();
+    const term = input.value.trim();
+    if (term) location.hash = new URLSearchParams({ q: term }).toString();
+  });
+  return form;
+}
+
+async function renderSide(poa, current, q) {
+  const side = document.getElementById("side");
+  const visiting = poa.url !== HOME;
+  side.replaceChildren(searchBox(q));
+
+  if (visiting) {
+    const home = await loadPoa(HOME);
+    side.append(el("a", { class: "back", href: "#" }, "← Back to " + (home ? home.name : "my Poa")));
+  }
+
+  side.append(el("h2", { class: "label" }, visiting ? poa.name : "Mine"));
+  const mine = el("ul", { class: "list" });
+  for (const p of poa.posts) {
+    const a = el("a", { href: link(poa.url, p.href) }, p.title);
+    if (p.href === current) a.classList.add("active");
+    mine.append(el("li", {}, a));
+  }
+  side.append(poa.posts.length ? mine : el("p", { class: "empty" }, "No posts yet."));
+
+  side.append(el("h2", { class: "label" }, visiting ? poa.name + " reads" : "Others"));
+  const others = el("ul", { class: "list" });
+  side.append(poa.reads.length ? others : el("p", { class: "empty" }, "Not reading anyone yet."));
+
+  const items = poa.reads.map(addr => {
+    const url = poaUrl(addr);
+    const a = el("a", { href: link(url), class: "other" },
+      el("span", { class: "other-name" }, addr),
+      el("span", { class: "other-post" }, "…"));
+    const li = el("li", {}, a);
+    others.append(li);
+    return { url, a, li, date: "" };
+  });
+
+  side.append(el("div", { class: "foot" },
+    el("strong", {}, "poa"),
+    el("a", { href: WHAT_IS_POA }, "what is poa?")));
+
+  // Fill in others as they arrive, then sort newest first.
+  await Promise.all(items.map(async it => {
+    const other = await loadPoa(it.url);
+    const [name, post] = it.a.children;
+    if (!other) {
+      it.a.classList.add("offline");
+      post.textContent = "unreachable";
+      return;
+    }
+    name.textContent = other.name;
+    const latest = other.posts[0];
+    post.textContent = latest ? latest.title : "No posts yet";
+    if (latest) {
+      it.a.href = link(other.url, latest.href);
+      it.date = dateFrom(latest.href);
+    }
+  }));
+  items
+    .sort((x, y) => (y.date > x.date) - (y.date < x.date))
+    .forEach(it => others.append(it.li));
+}
+
+function fixLinks(container, base, poa) {
+  const origin = new URL(base).origin;
+  const folder = new URL(".", poa.url).href;
+  for (const img of container.querySelectorAll("img")) {
+    const src = new URL(img.getAttribute("src"), base);
+    // Only load images from the Poa's own site.
+    if (src.origin !== origin) {
+      img.replaceWith(el("a", { href: src.href }, img.alt || src.href));
+    } else {
+      img.src = src.href;
+    }
+  }
+  for (const a of container.querySelectorAll("a[href]")) {
+    const href = a.getAttribute("href");
+    if (href.startsWith("#")) continue;
+    const target = new URL(href, base).href;
+    if (/\.md$/i.test(target) && target.startsWith(folder) && !target.endsWith("/poa.md")) {
+      // A link to another post on the same Poa opens in the reader.
+      a.href = link(poa.url, target.slice(folder.length));
+    } else {
+      a.href = target;
+      a.rel = "noopener nofollow";
+    }
+  }
+}
+
+async function renderPost(poa, href) {
+  const article = document.getElementById("post");
+  if (!href) {
+    article.replaceChildren(el("p", { class: "notice" }, poa.name + " hasn't posted anything yet."));
+    document.title = poa.name + " · poa";
+    return;
+  }
+  const url = new URL(href, poa.url).href;
+  let text;
+  try {
+    text = await fetchText(url);
+  } catch {
+    article.replaceChildren(el("p", { class: "notice" }, "This post is unavailable right now."));
+    return;
+  }
+  const { header, body } = splitHeader(text);
+  const listed = poa.posts.find(p => p.href === href);
+  const title = header.title || (listed && listed.title) || href;
+  const date = header.date || dateFrom(href);
+
+  const meta = el("div", { class: "meta" },
+    el("a", { href: link(poa.url) }, poa.name),
+    date ? " · " + formatDate(date) : null);
+  const content = el("div", { class: "body" });
+  content.innerHTML = md.render(body); // raw HTML is disabled in the renderer
+  fixLinks(content, url, poa);
+
+  article.replaceChildren(meta, el("h1", { class: "title" }, title), content);
+  document.title = title + " · " + poa.name;
+  window.scrollTo(0, 0);
+}
+
+// ---------- Search ----------
+
+const textCache = new Map();
+function loadBody(url) {
+  if (!textCache.has(url)) {
+    textCache.set(url, fetchText(url).then(t => plain(splitHeader(t).body)).catch(() => null));
+  }
+  return textCache.get(url);
+}
+
+// Markdown to rough plain text, for matching and snippets.
+function plain(s) {
+  return s
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")
+    .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")
+    .replace(/[*_`~]/g, "")
+    .replace(/[#>|]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .normalize("NFC");
+}
+
+// Lowercase and ignore accents, so "jarvinen" finds "Järvinen".
+function fold(s) {
+  return s.normalize("NFC").split("").map(c => c.normalize("NFD")[0]).join("").toLowerCase();
+}
+
+// Run at most n fetches at a time.
+function limiter(n) {
+  let active = 0;
+  const queue = [];
+  const next = () => {
+    if (active >= n || !queue.length) return;
+    active++;
+    const { fn, resolve } = queue.shift();
+    fn().then(resolve, () => resolve(null)).finally(() => { active--; next(); });
+  };
+  return fn => new Promise(resolve => { queue.push({ fn, resolve }); next(); });
+}
+const limit = limiter(6);
+
+let searchRun = 0;
+
+async function renderSearch(q) {
+  const run = ++searchRun;
+  const article = document.getElementById("post");
+  const status = el("p", { class: "status" }, "Searching…");
+  const list = el("ul", { class: "results" });
+  article.replaceChildren(el("h1", { class: "title" }, "Search: " + q), status, list);
+  document.title = "Search: " + q + " · poa";
+
+  const needle = fold(q.trim());
+  const results = [];
+  const tasks = [];
+  let poaCount = 0;
+
+  const away = d => d === 0 ? "yours" : d === 1 ? "1 step away" : d + " steps away";
+
+  function draw() {
+    if (run !== searchRun) return;
+    results.sort((a, b) => (a.rank - b.rank) || (b.date > a.date) - (b.date < a.date));
+    list.replaceChildren(...results.map(r => {
+      const meta = [r.poa.name, r.date ? formatDate(r.date) : null, away(r.depth)].filter(Boolean).join(" · ");
+      const snip = el("div", { class: "r-snip" });
+      if (r.snippet) {
+        const [before, hit, after] = r.snippet;
+        snip.append(before, el("mark", {}, hit), after);
+      }
+      return el("li", {}, el("a", { href: link(r.poa.url, r.href) },
+        el("div", { class: "r-meta" }, meta),
+        el("span", { class: "r-title" }, r.title),
+        r.snippet ? snip : null));
+    }));
+  }
+
+  function snippetOf(text) {
+    const i = fold(text).indexOf(needle);
+    if (i < 0) return null;
+    const start = Math.max(0, i - 60);
+    const end = Math.min(text.length, i + needle.length + 100);
+    return [
+      (start > 0 ? "…" : "") + text.slice(start, i),
+      text.slice(i, i + needle.length),
+      text.slice(i + needle.length, end) + (end < text.length ? "…" : ""),
+    ];
+  }
+
+  function searchPoa(poa, depth) {
+    if (fold(poa.name).includes(needle)) {
+      results.push({ poa, depth, rank: 0, title: poa.name, href: null, date: "" });
+    }
+    poa.posts.forEach((p, i) => {
+      const date = dateFrom(p.href);
+      if (fold(p.title).includes(needle)) {
+        results.push({ poa, depth, rank: 1, title: p.title, href: p.href, date });
+      } else if (i < SEARCH_POSTS_EACH) {
+        tasks.push(limit(() => loadBody(new URL(p.href, poa.url).href)).then(text => {
+          if (run !== searchRun || !text) return;
+          const snippet = snippetOf(text);
+          if (snippet) {
+            results.push({ poa, depth, rank: 2, title: p.title, href: p.href, date, snippet });
+            draw();
+          }
+        }));
+      }
+    });
+    draw();
+  }
+
+  // Walk the lists one step at a time.
+  const seen = new Set([HOME]);
+  let layer = [HOME];
+  for (let depth = 0; layer.length && depth <= SEARCH_STEPS; depth++) {
+    const poas = await Promise.all(layer.map(u => limit(() => loadPoa(u))));
+    if (run !== searchRun) return;
+    const next = [];
+    for (const poa of poas) {
+      if (!poa) continue;
+      poaCount++;
+      searchPoa(poa, depth);
+      for (const addr of poa.reads) {
+        const u = poaUrl(addr);
+        if (!seen.has(u) && seen.size < SEARCH_MAX_POAS) { seen.add(u); next.push(u); }
+      }
+    }
+    status.textContent = "Searching… " + poaCount + " Poas so far";
+    layer = depth < SEARCH_STEPS ? next : [];
+  }
+
+  await Promise.all(tasks);
+  if (run !== searchRun) return;
+  draw();
+  status.textContent = (results.length ? results.length + " found" : "Nothing found") +
+    " in " + poaCount + (poaCount === 1 ? " Poa" : " Poas") + " up to " + SEARCH_STEPS + " steps away.";
+}
+
+// ---------- Main ----------
+
+async function show() {
+  const q = new URLSearchParams(location.hash.slice(1)).get("q");
+  if (q) {
+    searchRun++;
+    const home = await loadPoa(HOME);
+    if (home) renderSide(home, null, q);
+    renderSearch(q);
+    return;
+  }
+  searchRun++; // stop any search still running
+  const r = route();
+  const poa = await loadPoa(r.poa);
+  if (!poa) {
+    document.getElementById("side").replaceChildren(
+      el("a", { class: "back", href: "#" }, "← Back"));
+    document.getElementById("post").replaceChildren(
+      el("p", { class: "notice" }, "This Poa can't be reached right now."));
+    return;
+  }
+  const href = r.post || (poa.posts[0] && poa.posts[0].href);
+  renderSide(poa, href);
+  renderPost(poa, href);
+}
+
+window.addEventListener("hashchange", show);
+show();
+</script>
+</body>
+</html>
