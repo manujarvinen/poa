@@ -6,5 +6,3 @@ name: Manu Järvinen
 - [Hello, Poa](2026-11-19-hello.md)
 
 ## Poas I read
-
-- gearnoodle.github.io/poa

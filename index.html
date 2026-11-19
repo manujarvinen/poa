@@ -150,18 +150,21 @@
 <script>
 "use strict";
 
-// "Read more" under "what is poa?" points to this Poa's own GitHub repo when the
-// site runs on GitHub Pages (username.github.io/repo). Elsewhere it uses this:
+// "Read more" under "what is poa?" points to this Poa's own repo when the site runs on
+// GitHub Pages or Codeberg Pages. Elsewhere it uses this:
 const WHAT_IS_POA_FALLBACK = "https://github.com/topics/poa";
 
 function readMoreUrl() {
   const host = location.hostname.toLowerCase();
-  const m = host.match(/^([a-z0-9-]+)\.github\.io$/);
-  if (!m) return WHAT_IS_POA_FALLBACK;
   const first = location.pathname.split("/")[1] || "";
-  // username.github.io/poa/ lives in repo "poa"; username.github.io/ lives in repo "username.github.io".
-  const repo = first && !first.includes(".") ? first : host;
-  return "https://github.com/" + m[1] + "/" + repo + "#readme";
+  const folder = first && !first.includes(".") ? first : "";
+  // GitHub: username.github.io/poa/ lives in repo "poa"; username.github.io/ in repo "username.github.io".
+  let m = host.match(/^([a-z0-9-]+)\.github\.io$/);
+  if (m) return "https://github.com/" + m[1] + "/" + (folder || host) + "#readme";
+  // Codeberg: username.codeberg.page/poa/ lives in repo "poa"; username.codeberg.page/ in repo "pages".
+  m = host.match(/^([a-z0-9-]+)\.codeberg\.page$/);
+  if (m) return "https://codeberg.org/" + m[1] + "/" + (folder || "pages");
+  return WHAT_IS_POA_FALLBACK;
 }
 const WHAT_IS_POA = readMoreUrl();
 

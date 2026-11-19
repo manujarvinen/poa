@@ -62,7 +62,7 @@ name: Manu Järvinen
 
 **Posts** are `.md` files with a header (`title`, `date` as `YYYY-MM-DD`) followed by Markdown (CommonMark). Readers must not run raw HTML in posts and only load images from the post's own site.
 
-**Hosting.** Any host works if it serves the files over HTTPS. For web-based readers, the host must also allow cross-site requests (the header `Access-Control-Allow-Origin: *`). GitHub Pages does this by default.
+**Hosting.** Any host works if it serves the files over HTTPS. For web-based readers, the host must also allow cross-site requests (the header `Access-Control-Allow-Origin: *`). GitHub Pages does this by default. On Codeberg Pages, a `_headers` file adds it; on your own Apache host, `.htaccess` does (see `welcome.md` in the template).
 
 **Offline means gone.** When a Poa's host is unreachable, readers show it as unreachable. They don't keep or pass on copies.
 
